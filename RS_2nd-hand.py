@@ -1,7 +1,6 @@
 # -*- coding:utf-8 -*-
 
 import requests
-import os
 from lxml import etree
 import urllib2
 from email.header import Header
@@ -11,6 +10,9 @@ import smtplib
 import re
 import urllib
 import cookielib
+import time
+import os
+import random
 import sys
 reload(sys)
 sys.setdefaultencoding( "utf-8" )
@@ -64,9 +66,9 @@ def sendemail(comtent, email_addr):
     smtp_server = 'stumail.xidian.edu.cn'
 
     msg = MIMEText(comtent,'html','utf-8')
-    msg['From'] = _format_addr(u'睿思专家<%s>' % from_addr)
+    msg['From'] = _format_addr(u'二手交易<%s>' % from_addr)
     msg['To'] = _format_addr(u'RS<%s>' % to_addr)
-    msg['Subject'] = Header(u'睿思关注新品', 'utf-8')
+    msg['Subject'] = Header(u'你关心的 才是头条', 'utf-8')
 
     server = smtplib.SMTP(smtp_server,25)
     server.set_debuglevel(1)
@@ -77,6 +79,17 @@ def sendemail(comtent, email_addr):
 if __name__ == "__main__":
     # 处理post请求的url
     posturl = 'http://rs.xidian.edu.cn/member.php?mod=logging&action=login&loginsubmit=yes&infloat=yes&lssubmit=yes&inajax=1'
+
+    if os.path.exists('log.txt') != True:
+        log = open('log.txt', 'w')
+        log.close()
+
+    if os.path.exists('setting.txt') != True:
+        setting = open('setting.txt', 'w')
+        setting.write('接收邮箱=\n')
+        setting.write('关键字(另起一行):\n')
+        setting.close()
+        exit(0)
 
     #设置一个cookie处理器，它负责从服务器下载cookie到本地，并且在发送请求时带上本地的cookie
     cj = cookielib.LWPCookieJar()
@@ -104,44 +117,52 @@ if __name__ == "__main__":
     request = urllib2.Request(posturl, postData, headers)
     response = urllib2.urlopen(request)
 
+    while True:
+        try:
+            # 可以往下循环
+            old_campus_link = urllib2.urlopen('http://rs.xidian.edu.cn/forum.php?mod=forumdisplay&fid=110&filter=typeid&typeid=68').read()
+            new_campus_link = urllib2.urlopen('http://rs.xidian.edu.cn/forum.php?mod=forumdisplay&fid=110&filter=typeid&typeid=2').read()
 
-    # 可以往下循环
-    old_campus_link = urllib2.urlopen('http://rs.xidian.edu.cn/forum.php?mod=forumdisplay&fid=110&filter=typeid&typeid=68').read()
-    new_campus_link = urllib2.urlopen('http://rs.xidian.edu.cn/forum.php?mod=forumdisplay&fid=110&filter=typeid&typeid=2').read()
+            old_campus_list = getTitleUrl(old_campus_link)
+            new_campus_list = getTitleUrl(new_campus_link)
 
-    old_campus_list = getTitleUrl(old_campus_link)
-    new_campus_list = getTitleUrl(new_campus_link)
+            with open('setting.txt') as setting:
+                email_addr = setting.readline().split("=")[1].replace("\n",'').decode('gbk')
+                #print email_addr
+                setting.readline()
+                #keywords = [each.replace("\n",'').decode('gbk') for each in setting.readlines()]   #若自己手动新建txt文件，而非程序自动生成，则需要gbk解码——windows的锅
+                #keywords = [each.replace("\n", '') for each in setting.readlines()]
+                keywords = [each.strip('\n') for each in setting.readlines()]
+                keywords = [each for each in keywords if each != '']
+                #print keywords
 
-    with open('setting.txt') as setting:
-        email_addr = setting.readline().split("=")[1].replace("\n",'').decode('gbk')
-        # print email_addr
-        setting.readline()
-        keywords = [each.replace("\n",'').decode('gbk') for each in setting.readlines()]
-        # print keywords
+            log = open('log.txt')
+            logs = log.readlines()
+            log.close()
 
-    log = open('log.txt')
-    logs = log.readlines()
-    log.close()
+            old_campus_checked = check(old_campus_list,keywords,logs)
+            new_campus_checked = check(new_campus_list,keywords,logs)
+            allchecked = old_campus_checked + new_campus_checked
+            #print allchecked
 
-    old_campus_checked = check(old_campus_list,keywords,logs)
-    new_campus_checked = check(new_campus_list,keywords,logs)
-    allchecked = old_campus_checked + new_campus_checked
-    # print allchecked
+            # 存储标题到log文本中
+            if len(allchecked) != 0:
+                log = open('log.txt','a')
+                for each in allchecked:
+                    log.write(each[0])
+                    log.write('\n')
+                log.close()
 
-    # 存储标题到log文本中
-    if len(allchecked) != 0:
-        log = open('log.txt','a')
-        for each in allchecked:
-            log.write(each[0])
-            log.write('\n')
-        log.close()
+                allcomtent = []
+                for each in allchecked:
+                    posttime, comtent = getRScomtent(each[1])
+                    finalcomtent = '<br />标题：' + each[0] +'<br />' + '发帖时间：' + posttime + '<br />' + '<br />' + comtent + '<br />'
+                    allcomtent.append(finalcomtent)
+                allcomtent = ''.join(allcomtent)
+                # 发送到邮箱
+                sendemail(allcomtent, email_addr)
+            time.sleep(10 * 60 + random.randint(0, 300))  # 暂停片刻 再次扫描
+        except:
+            pass
 
-        allcomtent = []
-        for each in allchecked:
-            posttime, comtent = getRScomtent(each[1])
-            finalcomtent = '<br />标题：' + each[0] +'<br />' + '发帖时间：' + posttime + '<br />' + '<br />' + comtent + '<br />'
-            allcomtent.append(finalcomtent)
-        allcomtent = ''.join(allcomtent)
-        # 发送到邮箱
-        sendemail(allcomtent, email_addr)
 
