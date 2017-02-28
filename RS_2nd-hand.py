@@ -60,10 +60,10 @@ def _format_addr(s):
         addr.encode('utf-8') if isinstance(addr, unicode) else addr))
 
 def sendemail(comtent, email_addr):
-    from_addr = 'zjchen@stu.xidian.edu.cn'
-    password = 'Xidian1234'
+    from_addr = 'xxxx@zzz.com'
+    password = 'pw1234'
     to_addr = email_addr
-    smtp_server = 'stumail.xidian.edu.cn'
+    smtp_server = 'xxxx.com'
 
     msg = MIMEText(comtent,'html','utf-8')
     msg['From'] = _format_addr(u'二手交易<%s>' % from_addr)
@@ -103,9 +103,9 @@ if __name__ == "__main__":
 
     # 构造postdata用于传输登陆
     postData = {
-                'username':'Terumi',
+                'username':'xxxx',
                 'cookietime':'2592000',
-                'password':'8f31c1023b1eb0ca522c8019322d0271',
+                'password':'8f3321023b23153432311232111111',
                 'quickforward':'yes',
                 'handlekey':'ls'
                }
